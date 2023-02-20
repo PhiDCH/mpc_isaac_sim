@@ -1,0 +1,4 @@
+*.usd
+
+__pycache__
+.thumbs
