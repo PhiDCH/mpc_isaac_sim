@@ -6,16 +6,16 @@ import matplotlib.pyplot as plt
 from simulation_code import simulate
 
 # setting matrix_weights' variables
-Q_x = 100
-Q_y = 100
-Q_theta = 200
+Q_x = 1
+Q_y = 1
+Q_theta = 0.01
 R1 = 1
 R2 = 1
 R3 = 1
 R4 = 1
 
 step_horizon = 0.1  # time between steps in seconds
-N = 10              # number of look ahead steps
+N = 10            # number of look ahead steps
 rob_diam = 0.3      # diameter of the robot
 wheel_radius = 1    # wheel radius
 Lx = 0.3            # L in J Matrix (half robot x-axis length)
@@ -27,13 +27,13 @@ x_init = 0
 y_init = 0
 theta_init = 0
 x_target = 10
-y_target = 10
-theta_target = pi/4
+y_target = 15
+theta_target = 5*pi/4
 
 v_max = 1
-v_min = -0.1
-w_max = 0.1
-w_min = -0.1
+v_min = 0
+w_max = 0.2
+w_min = -0.2
 
 def shift_timestep(step_horizon, t0, state_init, u, f):
     f_value = f(state_init, u[:, 0])
@@ -64,16 +64,21 @@ states = ca.vertcat(
 n_states = states.numel()
 
 # control symbolic variables
-V_a = ca.SX.sym('V_a')
-V_b = ca.SX.sym('V_b')
-V_c = ca.SX.sym('V_c')
-V_d = ca.SX.sym('V_d')
-controls = ca.vertcat(
-    V_a,
-    V_b,
-    V_c,
-    V_d
-)
+# V_a = ca.SX.sym('V_a')
+# V_b = ca.SX.sym('V_b')
+# V_c = ca.SX.sym('V_c')
+# V_d = ca.SX.sym('V_d')
+# controls = ca.vertcat(
+#     V_a,
+#     V_b,
+#     V_c,
+#     V_d
+# )
+
+##########################3
+v_ = ca.SX.sym('v_')
+w_ = ca.SX.sym('w_')
+controls = ca.vertcat(v_, w_)
 n_controls = controls.numel()
 
 # matrix containing all states over all time steps +1 (each column is a state vector)
@@ -88,24 +93,33 @@ P = ca.SX.sym('P', n_states + n_states)
 # state weights matrix (Q_X, Q_Y, Q_THETA)
 Q = ca.diagcat(Q_x, Q_y, Q_theta)
 
-# controls weights matrix
-R = ca.diagcat(R1, R2, R3, R4)
+# # controls weights matrix
+# R = ca.diagcat(R1, R2, R3, R4)
 
-# discretization model (e.g. x2 = f(x1, v, t) = x1 + v * dt)
-rot_3d_z = ca.vertcat(
-    ca.horzcat(cos(theta), -sin(theta), 0),
-    ca.horzcat(sin(theta),  cos(theta), 0),
-    ca.horzcat(         0,           0, 1)
+# # discretization model (e.g. x2 = f(x1, v, t) = x1 + v * dt)
+# rot_3d_z = ca.vertcat(
+#     ca.horzcat(cos(theta), -sin(theta), 0),
+#     ca.horzcat(sin(theta),  cos(theta), 0),
+#     ca.horzcat(         0,           0, 1)
+# )
+# # Mecanum wheel transfer function which can be found here: 
+# # https://www.researchgate.net/publication/334319114_Model_Predictive_Control_for_a_Mecanum-wheeled_robot_in_Dynamical_Environments
+# J = (wheel_radius/4) * ca.DM([
+#     [         1,         1,          1,         1],
+#     [        -1,         1,          1,        -1],
+#     [-1/(Lx+Ly), 1/(Lx+Ly), -1/(Lx+Ly), 1/(Lx+Ly)]
+# ])
+# # RHS = states + J @ controls * step_horizon  # Euler discretization
+# RHS = rot_3d_z @ J @ controls
+
+###############33
+R = ca.diagcat(R1,R2)
+RHS = ca.vertcat(
+    v_*cos(theta) - wheel_radius*w_*sin(theta),
+    v_*sin(theta) + wheel_radius*w_*cos(theta),
+    w_
 )
-# Mecanum wheel transfer function which can be found here: 
-# https://www.researchgate.net/publication/334319114_Model_Predictive_Control_for_a_Mecanum-wheeled_robot_in_Dynamical_Environments
-J = (wheel_radius/4) * ca.DM([
-    [         1,         1,          1,         1],
-    [        -1,         1,          1,        -1],
-    [-1/(Lx+Ly), 1/(Lx+Ly), -1/(Lx+Ly), 1/(Lx+Ly)]
-])
-# RHS = states + J @ controls * step_horizon  # Euler discretization
-RHS = rot_3d_z @ J @ controls
+
 # maps controls from [va, vb, vc, vd].T to [vx, vy, omega].T
 f = ca.Function('f', [states, controls], [RHS])
 
@@ -120,7 +134,8 @@ for k in range(N):
     con = U[:, k]
     cost_fn = cost_fn \
         + (st - P[n_states:]).T @ Q @ (st - P[n_states:]) \
-        + con.T @ R @ con
+        + con.T @ R @ con \
+        ##+ CM(st)
     st_next = X[:, k+1]
 
     st_next_shift = st + f(st, con)*step_horizon
@@ -168,8 +183,16 @@ ubx[0: n_states*(N+1): n_states] = ca.inf      # X upper bound
 ubx[1: n_states*(N+1): n_states] = ca.inf      # Y upper bound
 ubx[2: n_states*(N+1): n_states] = ca.inf      # theta upper bound
 
-lbx[n_states*(N+1):] = v_min                  # v lower bound for all V
-ubx[n_states*(N+1):] = v_max                  # v upper bound for all V
+# lbx[n_states*(N+1):] = v_min                  # v lower bound for all V
+# ubx[n_states*(N+1):] = v_max                  # v upper bound for all V
+
+k = n_states*(N+1)
+while k<n_states*(N+1) + n_controls*N:
+    lbx[k] = v_min
+    lbx[k+1] = w_min
+    ubx[k] = v_max
+    ubx[k+1] = w_max
+    k += 2
 
 
 args = {
@@ -248,8 +271,8 @@ if __name__ == '__main__':
 
         # xx ...
         t2 = time()
-        print(mpc_iter)
-        print(t2-t1)
+        # print(mpc_iter)
+        # print(t2-t1)
         times = np.vstack((
             times,
             t2-t1
@@ -260,10 +283,10 @@ if __name__ == '__main__':
     main_loop_time = time()
     ss_error = ca.norm_2(state_init - state_target)
 
-    print('\n\n')
-    print('Total time: ', main_loop_time - main_loop)
-    print('avg iteration time: ', np.array(times).mean() * 1000, 'ms')
-    print('final error: ', ss_error)
+    # print('\n\n')
+    # print('Total time: ', main_loop_time - main_loop)
+    # print('avg iteration time: ', np.array(times).mean() * 1000, 'ms')
+    # print('final error: ', ss_error)
 
     # simulate
     simulate(cat_states, cat_controls, times, step_horizon, N,
