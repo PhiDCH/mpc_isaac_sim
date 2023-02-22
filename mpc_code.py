@@ -18,7 +18,7 @@ rob_diam = 0.3      # diameter of the robot
 wheel_radius = 1    # wheel radius
 Lx = 0.3            # L in J Matrix (half robot x-axis length)
 Ly = 0.3            # l in J Matrix (half robot y-axis length)
-sim_time = 20     # simulation time
+sim_time = 60     # simulation time
 
 # specs
 x_init = 0
@@ -110,11 +110,15 @@ for k in range(N):
 
 
 # obstackle
-obs_x = 5
-obs_y = 5
-obs_diam = 6
+obs_x = np.ones((100,1))*5
+obs_y = np.arange(500,600)/100
+obs_diam = 1
+
+n_obs = len(obs_x)
+
 for k in range(N+1):
-    g = ca.vertcat(g, -ca.sqrt((X[0,k]-obs_x)**2 + (X[1,k]-obs_y)**2) + rob_diam/2 + obs_diam/2)
+    for j in range(n_obs):
+        g = ca.vertcat(g, -ca.sqrt((X[0,k]-obs_x[j])**2 + (X[1,k]-obs_y[j])**2) + rob_diam/2 + obs_diam/2)
 
 
 OPT_variables = ca.vertcat(
@@ -154,8 +158,8 @@ ubx[2: n_states*(N+1): n_states] = ca.inf      # theta upper bound
 lbg = ca.DM.zeros((n_states*(N+1), 1))          # equal constraints
 ubg = ca.DM.zeros((n_states*(N+1), 1))          # equal constraints
 
-lbg = ca.vertcat(lbg, -ca.inf*ca.DM.ones(N+1, 1))      # inequal constraints
-ubg = ca.vertcat(ubg, ca.DM.zeros(N+1, 1))      # inequal constraints
+lbg = ca.vertcat(lbg, -ca.inf*ca.DM.ones(n_obs*(N+1), 1))      # inequal constraints
+ubg = ca.vertcat(ubg, ca.DM.zeros(n_obs*(N+1), 1))      # inequal constraints
 
 k = n_states*(N+1)
 while k<n_states*(N+1) + n_controls*N:
@@ -252,12 +256,12 @@ if __name__ == '__main__':
         mpc_iter = mpc_iter + 1
 
     main_loop_time = time()
-    ss_error = ca.norm_2(state_init - state_target)
+    ss_error = ca.norm_2(state_init[:2] - state_target[:2])
 
-    # print('\n\n')
-    # print('Total time: ', main_loop_time - main_loop)
-    # print('avg iteration time: ', np.array(times).mean() * 1000, 'ms')
-    # print('final error: ', ss_error)
+    print('\n\n')
+    print('Total time: ', main_loop_time - main_loop)
+    print('avg iteration time: ', np.array(times).mean() * 1000, 'ms')
+    print('final error: ', ss_error)
 
     # simulate
     simulate(cat_states, cat_controls, times, step_horizon, N,

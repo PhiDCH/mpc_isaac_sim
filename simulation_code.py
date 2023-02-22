@@ -53,7 +53,7 @@ def simulate(cat_states, cat_controls, t, step_horizon, N, reference, save=False
         # xy = target_state.get_xy()
         # target_state.set_xy(xy)            
 
-        return path, horizon, current_state, target_state,
+        return path, horizon, current_state, target_state
 
     # create figure and axes
     fig, ax = plt.subplots(figsize=(6, 6))
@@ -75,6 +75,10 @@ def simulate(cat_states, cat_controls, t, step_horizon, N, reference, save=False
     target_triangle = create_triangle(reference[3:])
     target_state = ax.fill(target_triangle[:, 0], target_triangle[:, 1], color='b')
     target_state = target_state[0]
+    
+    for i in np.arange(50,60)/10:
+        obs = plt.Circle((5,i), 0.5)
+        ax.add_patch(obs)
 
     sim = animation.FuncAnimation(
         fig=fig,
@@ -85,6 +89,7 @@ def simulate(cat_states, cat_controls, t, step_horizon, N, reference, save=False
         blit=True,
         repeat=True
     )
+
     plt.show()
 
     if save == True:
