@@ -6,13 +6,11 @@ import matplotlib.pyplot as plt
 from simulation_code import simulate
 
 # setting matrix_weights' variables
-Q_x = 1
-Q_y = 1
-Q_theta = 0.01
-R1 = 1
-R2 = 1
-R3 = 1
-R4 = 1
+Q_x = 5
+Q_y = 5
+Q_theta = 0.1
+R1 = 10
+R2 = 0.1
 
 step_horizon = 0.1  # time between steps in seconds
 N = 10            # number of look ahead steps
@@ -63,18 +61,6 @@ states = ca.vertcat(
 )
 n_states = states.numel()
 
-# control symbolic variables
-# V_a = ca.SX.sym('V_a')
-# V_b = ca.SX.sym('V_b')
-# V_c = ca.SX.sym('V_c')
-# V_d = ca.SX.sym('V_d')
-# controls = ca.vertcat(
-#     V_a,
-#     V_b,
-#     V_c,
-#     V_d
-# )
-
 ##########################3
 v_ = ca.SX.sym('v_')
 w_ = ca.SX.sym('w_')
@@ -93,26 +79,7 @@ P = ca.SX.sym('P', n_states + n_states)
 # state weights matrix (Q_X, Q_Y, Q_THETA)
 Q = ca.diagcat(Q_x, Q_y, Q_theta)
 
-# # controls weights matrix
-# R = ca.diagcat(R1, R2, R3, R4)
-
-# # discretization model (e.g. x2 = f(x1, v, t) = x1 + v * dt)
-# rot_3d_z = ca.vertcat(
-#     ca.horzcat(cos(theta), -sin(theta), 0),
-#     ca.horzcat(sin(theta),  cos(theta), 0),
-#     ca.horzcat(         0,           0, 1)
-# )
-# # Mecanum wheel transfer function which can be found here: 
-# # https://www.researchgate.net/publication/334319114_Model_Predictive_Control_for_a_Mecanum-wheeled_robot_in_Dynamical_Environments
-# J = (wheel_radius/4) * ca.DM([
-#     [         1,         1,          1,         1],
-#     [        -1,         1,          1,        -1],
-#     [-1/(Lx+Ly), 1/(Lx+Ly), -1/(Lx+Ly), 1/(Lx+Ly)]
-# ])
-# # RHS = states + J @ controls * step_horizon  # Euler discretization
-# RHS = rot_3d_z @ J @ controls
-
-###############33
+###############
 R = ca.diagcat(R1,R2)
 RHS = ca.vertcat(
     v_*cos(theta) - wheel_radius*w_*sin(theta),
@@ -141,12 +108,13 @@ for k in range(N):
     st_next_shift = st + f(st, con)*step_horizon
     g = ca.vertcat(g, st_next - st_next_shift)
 
-    # k1 = f(st, con)
-    # k2 = f(st + step_horizon/2*k1, con)
-    # k3 = f(st + step_horizon/2*k2, con)
-    # k4 = f(st + step_horizon * k3, con)
-    # st_next_RK4 = st + (step_horizon / 6) * (k1 + 2 * k2 + 2 * k3 + k4)
-    # g = ca.vertcat(g, st_next - st_next_RK4)
+
+# obstackle
+obs_x = 5
+obs_y = 5
+obs_diam = 6
+for k in range(N+1):
+    g = ca.vertcat(g, -ca.sqrt((X[0,k]-obs_x)**2 + (X[1,k]-obs_y)**2) + rob_diam/2 + obs_diam/2)
 
 
 OPT_variables = ca.vertcat(
@@ -183,8 +151,11 @@ ubx[0: n_states*(N+1): n_states] = ca.inf      # X upper bound
 ubx[1: n_states*(N+1): n_states] = ca.inf      # Y upper bound
 ubx[2: n_states*(N+1): n_states] = ca.inf      # theta upper bound
 
-# lbx[n_states*(N+1):] = v_min                  # v lower bound for all V
-# ubx[n_states*(N+1):] = v_max                  # v upper bound for all V
+lbg = ca.DM.zeros((n_states*(N+1), 1))          # equal constraints
+ubg = ca.DM.zeros((n_states*(N+1), 1))          # equal constraints
+
+lbg = ca.vertcat(lbg, -ca.inf*ca.DM.ones(N+1, 1))      # inequal constraints
+ubg = ca.vertcat(ubg, ca.DM.zeros(N+1, 1))      # inequal constraints
 
 k = n_states*(N+1)
 while k<n_states*(N+1) + n_controls*N:
@@ -196,8 +167,8 @@ while k<n_states*(N+1) + n_controls*N:
 
 
 args = {
-    'lbg': ca.DM.zeros((n_states*(N+1), 1)),  # constraints lower bound
-    'ubg': ca.DM.zeros((n_states*(N+1), 1)),  # constraints upper bound
+    'lbg': lbg,
+    'ubg': ubg,
     'lbx': lbx,
     'ubx': ubx
 }
