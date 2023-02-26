@@ -75,10 +75,24 @@ def simulate(cat_states, cat_controls, t, step_horizon, N, reference, save=False
     target_triangle = create_triangle(reference[3:])
     target_state = ax.fill(target_triangle[:, 0], target_triangle[:, 1], color='b')
     target_state = target_state[0]
-    
-    for i in np.arange(50,60)/10:
-        obs = plt.Circle((5,i), 0.5)
-        ax.add_patch(obs)
+
+    # circle obstackle
+    # n_obs = 1
+    # for i in np.linspace(5,15,n_obs):
+    #     obs = plt.Circle((5,i), 1)
+        
+    #     ax.add_patch(obs)
+
+    # elipse obstackle
+    center = [5,5]
+    scale = [5,0.1]
+    rot = 3*pi/4
+    R_rot = np.array([[cos(rot), sin(rot)],[sin(rot), -cos(rot)]])
+    dt = np.linspace(0, 2*pi, 100)
+    xy_ = np.vstack((scale[0]*cos(dt), scale[1]*sin(dt))).T
+    xy_rot = np.dot(xy_, R_rot)
+    obs = plt.plot(xy_rot[:,0]+center[0], xy_rot[:,1]+center[1])
+    # ax.add_patch(obs)
 
     sim = animation.FuncAnimation(
         fig=fig,
@@ -96,4 +110,3 @@ def simulate(cat_states, cat_controls, t, step_horizon, N, reference, save=False
         sim.save('./animation' + str(time()) +'.gif', writer='ffmpeg', fps=30)
 
     return
-

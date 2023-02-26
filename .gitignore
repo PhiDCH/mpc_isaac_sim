@@ -1,4 +1,6 @@
 *.usd
 
+*.npy
+
 __pycache__
 .thumbs
