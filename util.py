@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.cluster import DBSCAN
 from matplotlib import pyplot as plt
 from matplotlib.patches import Ellipse
+import cv2
 
 
 def polar2decart(data, limit=4.0):
@@ -35,8 +36,30 @@ def findEllipse(X):
     ells = []
     for i in set(clus):
         xy = X[np.where(clus==i)]
+        # xy = find_hull(xy)
         ells.append(fit2ellipse(xy, n_std=2.0))
     return ells
+
+def find_hull(xy, scale=100, lim=400):
+    xy_ = np.int32(xy*scale)+lim
+    img = np.zeros((2*lim,2*lim)).astype(np.uint8)
+    img[xy_[:,1], xy_[:,0]] = 255
+    # img = cv2.flip(img, 0)
+
+    kernel = np.ones((5,5))
+    img = cv2.dilate(img, kernel, iterations=1)
+    kernel = np.ones((3,3))
+    img = cv2.erode(img, kernel, iterations=1)
+
+    contours, hierarchy = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if len(contours) > 1:
+        print('num of contour', len(contours))
+    # img_show = cv2.drawContours(img.copy(), contours, -1, 255, 3)
+    hull = cv2.convexHull(contours[0])
+    # img_show = cv2.drawContours(img.copy(), [hull], -1, 255, 3)
+    hull = hull.reshape((-1,2))
+    hull = (hull-lim)/scale
+    return hull
 
 def testPlot(X, ells, limit=4.0):
     fig, ax = plt.subplots()
@@ -55,7 +78,7 @@ if __name__=='__main__':
     import time
     data = np.load('data.npy', allow_pickle=True)
     t1 = time.time()
-    limit = 10.0
+    limit = 4.0
     X = polar2decart(data, limit)
     ells = findEllipse(X)
     print(time.time()-t1)
