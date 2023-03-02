@@ -57,20 +57,23 @@ def find_hull(xy, scale=100, lim=400):
     img[xy_[:,1], xy_[:,0]] = 255
     # img = cv2.flip(img, 0)
 
-    kernel = np.ones((5,5))
+    kernel = np.ones((10,10))
     img = cv2.dilate(img, kernel, iterations=1)
-    kernel = np.ones((3,3))
+    kernel = np.ones((6,6))
     img = cv2.erode(img, kernel, iterations=1)
 
     contours, hierarchy = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    if len(contours) > 1:
-        print('num of contour', len(contours))
+    # if len(contours) > 1:
+    #     print('num of contour', len(contours))
     # img_show = cv2.drawContours(img.copy(), contours, -1, 255, 3)
-    hull = cv2.convexHull(contours[0])
-    # img_show = cv2.drawContours(img.copy(), [hull], -1, 255, 3)
-    hull = hull.reshape((-1,2))
-    hull = (hull-lim)/scale
-    return hull
+    hulls = []
+    for con in contours:
+        hull = cv2.convexHull(con)
+        # img_show = cv2.drawContours(img.copy(), [hull], -1, 255, 3)
+        hull = hull.reshape((-1,2))
+        hull = (hull-lim)/scale
+        hulls.append(hull)
+    return hulls
 
 def testPlot(X, ells, limit=4.0):
     fig, ax = plt.subplots()

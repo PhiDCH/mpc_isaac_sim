@@ -2,7 +2,7 @@ import rospy
 from sensor_msgs.msg import LaserScan
 import numpy as np 
 import time
-from util import polar2decart, cluster, fit2ellipse
+from util import polar2decart, cluster, fit2ellipse, find_hull
 from matplotlib import pyplot as plt 
 from matplotlib.patches import Ellipse
 import cv2
@@ -51,7 +51,7 @@ class CostMapConverter():
         # print(self.scan.shape)
         # return
         fig, ax = plt.subplots()
-        limit = 15.0
+        limit = 4.0
         # ax.set(xlim=(-limit,limit), ylim=(-limit,limit),
         #     xticks=np.arange(-limit,limit), yticks=np.arange(-limit,limit))
 
@@ -68,12 +68,17 @@ class CostMapConverter():
                     if i>-1:
                         xy_ = xy[np.where(clus==i)]
                         ax.scatter(xy_[:,0], xy_[:,1])
-                        x,y,a,b,rot = fit2ellipse(xy_, n_std=1.0)
-                        ell = Ellipse((x,y), width=2*a, height=2*b, angle=rot, fill=False)
-                        # print(rot)
-                        ax.add_patch(ell)
-                        # np.save('d1.npy', xy_)
-                        # break
+
+                        hulls = find_hull(xy_, lim=500)
+                        for hull in hulls:
+                            ax.plot(hull[:,0], hull[:,1])
+
+                        # x,y,a,b,rot = fit2ellipse(xy_, n_std=1.0)
+                        # ell = Ellipse((x,y), width=2*a, height=2*b, angle=rot, fill=False)
+                        # ax.add_patch(ell)
+
+            cir = plt.Circle((0.0,0.0), 0.3, fill=False)
+            ax.add_artist(cir)
 
             rate.sleep()
             plt.pause(0.00001)
