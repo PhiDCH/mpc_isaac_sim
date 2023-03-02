@@ -6,30 +6,41 @@ import cv2
 
 
 def polar2decart(data, limit=4.0):
-    rads = np.linspace(0, 2*np.pi, 1972)
+    rads = np.linspace(0, 2*np.pi, len(data))
     X = []
-    for i, rad in enumerate(rads):
+    for i, rad in enumerate(rads-np.pi/2):
         if data[i] < limit:
             X.append([data[i]*np.cos(rad), data[i]*np.sin(rad)])
     X = np.array(X)
     return X
 
+def eigsorted(cov):
+    vals, vecs = np.linalg.eigh(cov)
+    order = vals.argsort()[::-1]
+    return vals[order], vecs[:,order]
+
 def fit2ellipse(hull, n_std=2.0):
+    center = np.mean(hull, axis=0)
+    hull = hull - center
     cov = np.cov(hull[:,0], hull[:,1])
-    pearson = cov[0, 1]/np.sqrt(cov[0, 0] * cov[1, 1])
-    ell_radius_x = np.sqrt(1 + pearson)*np.sqrt(cov[0, 0]) * n_std
-    ell_radius_y = np.sqrt(1 - pearson)*np.sqrt(cov[1, 1]) * n_std
 
-    mean_x, mean_y = np.mean(hull, axis=0)
+    # pearson = cov[0, 1]/np.sqrt(cov[0, 0] * cov[1, 1])
+    # ell_radius_x = np.sqrt(1 + pearson)*np.sqrt(cov[0, 0]) * n_std
+    # ell_radius_y = np.sqrt(1 - pearson)*np.sqrt(cov[1, 1]) * n_std
 
-    w,v = np.linalg.eig(cov)
-    vmax = v[np.argmin(w)]
-    rot = np.rad2deg(np.arctan2(vmax, [1,0])[0])
-    if rot<0:
-        rot += 90
-    # else:
-    #     rot = 90 -rot
-    return [mean_x, mean_y, ell_radius_x, ell_radius_y, rot]
+    # vals, vecs = eigsorted(cov)
+    # rot = np.degrees(np.arctan2(*vecs[:,0][::-1]))
+
+    w,v = np.linalg.eigh(cov)
+    # rot = np.rad2deg(np.arctan2(*v[:,np.argmax(abs(w))][::-1]))
+    rot = np.degrees(np.arctan2(*v[:,0][::-1]))
+    width, height = 2 * n_std * np.sqrt(w)
+
+    return [center[0], center[1], width, height, rot]
+
+def cluster(X):
+    clus = DBSCAN(eps=0.5, min_samples=5).fit(X).labels_
+    return clus
 
 def findEllipse(X):
     clus = DBSCAN(eps=0.5, min_samples=5).fit(X).labels_
@@ -66,7 +77,11 @@ def testPlot(X, ells, limit=4.0):
     ax.set(xlim=(-limit,limit), xticks=np.arange(-limit,limit),
             ylim=(-limit,limit), yticks=np.arange(-limit,limit))
     
-    plt.scatter(X[:,0], X[:,1])
+    clus = DBSCAN(eps=0.5, min_samples=5).fit(X).labels_
+    for i in set(clus):
+        xy = X[np.where(clus==i)]
+        ax.scatter(xy[:,0], xy[:,1])
+
     for ell in ells:
         x,y,a,b,rot = ell
         ellipse = Ellipse((x,y), width=2*a, height=2*b, angle=rot, fill=False)
@@ -76,10 +91,11 @@ def testPlot(X, ells, limit=4.0):
 
 if __name__=='__main__':
     import time
-    data = np.load('data.npy', allow_pickle=True)
+    data = np.load('d1.npy', allow_pickle=True)
     t1 = time.time()
     limit = 4.0
-    X = polar2decart(data, limit)
+    # X = polar2decart(data, limit)
+    X = data
     ells = findEllipse(X)
     print(time.time()-t1)
 
