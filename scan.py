@@ -64,18 +64,26 @@ class CostMapConverter():
             xy = polar2decart(self.scan, limit=limit)
             if len(xy) > 0:
                 clus = cluster(xy)
+                hp = []
                 for i in set(clus):
                     if i>-1:
                         xy_ = xy[np.where(clus==i)]
-                        ax.scatter(xy_[:,0], xy_[:,1])
+                        ax.scatter(xy_[:,0], xy_[:,1], s=0.1)
 
-                        hulls = find_hull(xy_, lim=500)
-                        for hull in hulls:
-                            ax.plot(hull[:,0], hull[:,1])
+                        x,y,a,b,rot = fit2ellipse(xy_, n_std=2.0)
+                        if a < 0.5:
+                            ell = Ellipse((x,y), width=a, height=b, angle=rot, fill=False)
+                            ax.add_patch(ell)
 
-                        # x,y,a,b,rot = fit2ellipse(xy_, n_std=1.0)
-                        # ell = Ellipse((x,y), width=2*a, height=2*b, angle=rot, fill=False)
-                        # ax.add_patch(ell)
+                        else: 
+                            hulls = find_hull(xy_, lim=500)
+                            for hull in hulls:
+                                ax.plot(hull[:,0], hull[:,1])
+
+                        
+                        # hp.append(a)
+                # print(np.around(hp, 5))
+
 
             cir = plt.Circle((0.0,0.0), 0.3, fill=False)
             ax.add_artist(cir)
