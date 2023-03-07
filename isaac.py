@@ -26,7 +26,7 @@ def euler_from_quaternion(quat):
         return yaw_z
 
 
-TARGET_POINT = np.array([-4.0, 3.0, 0.0])    # x,y
+TARGET_POINT = np.array([-10.0, 3.0, 0.0])    # x,y
 
 plt.ion()
 keep_going = True
@@ -42,9 +42,9 @@ class IsaacSim():
 
         self.cmd_pub = rospy.Publisher('carter1/cmd_vel', Twist, queue_size=1)
         
-        self.lidar = CostMapConverter()
+        self.limit = 1.0
+        self.lidar = CostMapConverter(self.limit)
         self.lidar.start_sub_lidar(topic_name='/carter1/scan')
-        self.limit = 4.0
 
         self.mpc = MPCController()
 
@@ -80,7 +80,7 @@ class IsaacSim():
             u, X0 = self.mpc.step(np.array([0,0,pose_init[2]]), pose_target)
             u = np.array(u.full()).T
             u0 = u[0]
-            print(u0)
+            # print(u0)
             self.set_cmd_vel(u0[0], u0[1])
             X0 = np.array(X0.full())
             ax.plot(-X0[1], X0[0])

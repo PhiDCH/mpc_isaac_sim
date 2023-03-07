@@ -17,9 +17,10 @@ def key_capture_thread():
 
 
 class CostMapConverter():
-    def __init__(self,):
+    def __init__(self, limit=1.0):
         self.sub_lidar = None
         self.scan = None
+        self.limit = limit
 
     def start_sub_lidar(self, topic_name: str = '/scan') -> bool:
         self.sub_lidar = rospy.Subscriber(
@@ -43,6 +44,23 @@ class CostMapConverter():
         if self.sub_lidar:
             self.sub_lidar.unregister()
         return
+
+    def get_xy(self,):
+        return polar2decart(self.scan, limit=self.limit)
+
+    def get_obstackle(self,) -> list:
+        ells = []
+        xy = self.get_xy()
+        if len(xy)>0:
+            clus = cluster(xy)
+            for i in set(clus):
+                if i>-1:
+                    xy_ = xy[np.where(clus==i)]
+                    ell = fit2ellipse(xy_, n_std=2.0)
+                    ells.append([ell, xy_])
+        
+        return ells
+
 
     def run(self,) -> None:
         rate = rospy.Rate(10)
@@ -71,23 +89,21 @@ class CostMapConverter():
                         ax.scatter(xy_[:,0], xy_[:,1], s=0.1)
 
                         x,y,a,b,rot = fit2ellipse(xy_, n_std=2.0)
-                        if a < 0.5:
-                            ell = Ellipse((x,y), width=a, height=b, angle=rot, fill=False)
-                            ax.add_patch(ell)
+                        # if a < 0.5:
+                        ell = Ellipse((x,y), width=a, height=b, angle=rot, fill=False)
+                        ax.add_patch(ell)
 
-                        else: 
-                            hulls = find_hull(xy_, lim=500)
-                            for hull in hulls:
-                                ax.plot(hull[:,0], hull[:,1])
+                        # else: 
+                        #     hulls = find_hull(xy_, lim=500)
+                        #     for hull in hulls:
+                        #         ax.plot(hull[:,0], hull[:,1])
 
                         
                         # hp.append(a)
                 # print(np.around(hp, 5))
 
-
             cir = plt.Circle((0.0,0.0), 0.3, fill=False)
             ax.add_artist(cir)
-
             rate.sleep()
             plt.pause(0.00001)
 

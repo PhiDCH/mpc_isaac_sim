@@ -18,7 +18,7 @@ Lx = 0.3            # L in J Matrix (half robot x-axis length)
 Ly = 0.3            # l in J Matrix (half robot y-axis length)
 sim_time = 100     # simulation time
 
-v_max = 2.0
+v_max = 1.0
 v_min = 0
 w_max = 0.3
 w_min = -0.3
