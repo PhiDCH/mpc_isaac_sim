@@ -18,7 +18,7 @@ Lx = 0.3            # L in J Matrix (half robot x-axis length)
 Ly = 0.3            # l in J Matrix (half robot y-axis length)
 sim_time = 100     # simulation time
 
-v_max = 1.0
+v_max = 2.0
 v_min = 0
 w_max = 0.3
 w_min = -0.3
@@ -113,7 +113,7 @@ def get_solver_args():
         'print_time': 0
     }
 
-    solver = ca.nlpsol('solver', 'ipopt', nlp_prob, opts)
+    # solver = ca.nlpsol('solver', 'ipopt', nlp_prob, opts)
 
     lbx = ca.DM.zeros((n_states*(N+1) + n_controls*N, 1))
     ubx = ca.DM.zeros((n_states*(N+1) + n_controls*N, 1))
@@ -141,9 +141,12 @@ def get_solver_args():
         'lbg': lbg,
         'ubg': ubg,
         'lbx': lbx,
-        'ubx': ubx
+        'ubx': ubx,
+        'nlp': nlp_prob,
+        'opt': opts,
+        'X': X
     }
-    return args, solver, f
+    return args, f
     
 
 def mpc_controller(pose_init, pose_target, args, solver):
@@ -172,9 +175,12 @@ def mpc_controller(pose_init, pose_target, args, solver):
 
 class MPCController():
     def __init__(self,):
-        self.args, self.solver, self.f = get_solver_args()
+        self.args, self.f = get_solver_args()
 
-    def step(self, pose_init, pose_target):
+    def step(self, pose_init, pose_target, ells=None):
+        if ells:
+            self.update_costmap(ells)
+
         pose_init = ca.DM(pose_init)
         pose_target = ca.DM(pose_target)
         self.args['p'] = ca.vertcat(pose_init, pose_target)
@@ -184,7 +190,8 @@ class MPCController():
             ca.reshape(X0, n_states*(N+1), 1),
             ca.reshape(u0, n_controls*N, 1)
         )
-        sol = self.solver(
+        solver = ca.nlpsol('solver', 'ipopt', self.args['nlp'], self.args['opt'])
+        sol = solver(
             x0=self.args['x0'],
             lbx=self.args['lbx'],
             ubx=self.args['ubx'],
@@ -197,16 +204,32 @@ class MPCController():
     
         return u, X0
 
+    def update_costmap(self, ells):
+        n_obs = len(ells)
+        for k in range(N+1):
+            for j in range(n_obs):
+                x,y,a,b,rot = ells[j]
+                a += rob_diam/2
+                b += rob_diam/2
+                cR = cos(rot)
+                sR = sin(rot)
+                self.args['nlp']['g'] = ca.vertcat(self.args['nlp']['g'], 
+                                        1 - (((self.args['X'][0,k]-x)*cR+(self.args['X'][1,k]-y)*sR)/a)**2 - (((self.args['X'][0,k]-x)*sR-(self.args['X'][1,k]-y)*cR)/b)**2)
+
+        self.args['lbg'] = ca.vertcat(self.args['lbg'], -ca.inf*ca.DM.ones(n_obs*(N+1), 1))
+        self.args['ubg'] = ca.vertcat(self.args['ubg'], ca.DM.zeros(n_obs*(N+1), 1))
+
+
 
 if __name__ == '__main__':
     main_loop = time()  # return time in sec
     t0 = 0
     state_init = ca.DM(np.array([0.0,0.0,1.57]))        # initial state
-    state_target = ca.DM(np.array([10.0, 10.0, 0.0]))  # target state
+    state_target = ca.DM(np.array([10.0, 10.0, 0.0]))   # target state
 
     t = ca.DM(t0)
-    u0 = ca.DM.zeros((n_controls, N))  # initial control
-    X0 = ca.repmat(state_init, 1, N+1)         # initial state full
+    u0 = ca.DM.zeros((n_controls, N))           # initial control
+    X0 = ca.repmat(state_init, 1, N+1)          # initial state full
 
 
     mpc_iter = 0
