@@ -7,19 +7,21 @@ from casadi import sin, cos, pi
 Q_x = 5
 Q_y = 5
 Q_theta = 0.0
-R1 = 0.0
-R2 = 10
+R1 = 1.0
+R2 = 5
 
 step_horizon = 0.1  # time between steps in seconds
 N = 10            # number of look ahead steps
-rob_diam = 0.3      # diameter of the robot
-wheel_radius = 1    # wheel radius
-Lx = 0.3            # L in J Matrix (half robot x-axis length)
-Ly = 0.3            # l in J Matrix (half robot y-axis length)
+rob_diam = 0.26671      # diameter of the robot
+wheel_radius = 0.24    # wheel radius
+Lx = 0.26671            # L in J Matrix (half robot x-axis length)
+Ly = 0.26671            # l in J Matrix (half robot y-axis length)
 sim_time = 100     # simulation time
 
-v_max = 1.0
-v_min = 0
+# v_max = 1.0
+# v_min = -1.0
+v_max = 0.5
+v_min = -0.5
 w_max = 0.3
 w_min = -0.3
 
@@ -209,8 +211,8 @@ class MPCController():
         for k in range(N+1):
             for j in range(n_obs):
                 x,y,a,b,rot = ells[j]
-                a += rob_diam/2
-                b += rob_diam/2
+                a += rob_diam
+                b += rob_diam
                 cR = cos(rot)
                 sR = sin(rot)
                 self.args['nlp']['g'] = ca.vertcat(self.args['nlp']['g'], 

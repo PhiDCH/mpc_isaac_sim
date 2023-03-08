@@ -7,8 +7,9 @@ import threading as th
 from matplotlib import pyplot as plt 
 from matplotlib.patches import Ellipse
 import math
-from mpc_solver import MPCController
+from mpc_solver import MPCController, rob_diam
 from scan import CostMapConverter
+
 
  
 def euler_from_quaternion(quat):
@@ -26,7 +27,8 @@ def euler_from_quaternion(quat):
         return yaw_z
 
 
-TARGET_POINT = np.array([-10.0, 3.0, 0.0])    # x,y
+TARGET_POINT = np.array([8.0, 5.0, 0.0])    # x,y
+# TARGET_POINT = np.array([0.0, 0.0, 0.0])    # x,y
 
 plt.ion()
 keep_going = True
@@ -42,7 +44,7 @@ class IsaacSim():
 
         self.cmd_pub = rospy.Publisher('carter1/cmd_vel', Twist, queue_size=1)
         
-        self.limit = 1.0
+        self.limit = 2.0
         self.lidar = CostMapConverter(self.limit)
         self.lidar.start_sub_lidar(topic_name='/carter1/scan')
 
@@ -75,18 +77,24 @@ class IsaacSim():
             # print(np.around(pose_init, 4))
             pose_target = TARGET_POINT - pose_init
             # print(np.around(pose_target, 4))
+            error = np.linalg.norm(pose_target[:2])
+            if error > 0.1:
 
-            # u, X0 = self.mpc.step(np.array([0,0,pose_init[2]]), pose_target, ells_)
-            u, X0 = self.mpc.step(np.array([0,0,pose_init[2]]), pose_target)
-            u = np.array(u.full()).T
-            u0 = u[0]
-            # print(u0)
-            self.set_cmd_vel(u0[0], u0[1])
-            X0 = np.array(X0.full())
-            ax.plot(-X0[1], X0[0])
-            # print(np.around(u, 4))
+                u, X0 = self.mpc.step(np.array([0,0,pose_init[2]]), pose_target, ells_)
+                # u, X0 = self.mpc.step(np.array([0,0,pose_init[2]]), pose_target)
+                u = np.array(u.full()).T
+                u0 = u[0]
+                # print(u0)
+                self.set_cmd_vel(u0[0], u0[1])
+                X0 = np.array(X0.full())
+                ax.plot(-X0[1], X0[0])
+                # print(np.around(u, 4))
 
-            cir = plt.Circle((0.0,0.0), 0.3, fill=False)
+            else:
+                self.set_cmd_vel(0.0, 0.0)
+                print('done')
+
+            cir = plt.Circle((0.0,0.0), rob_diam, fill=False)
             ax.add_artist(cir)
             cir1 = plt.Circle((-pose_target[1], pose_target[0]), 0.2, fill=True)
             ax.add_artist(cir1)
