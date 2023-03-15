@@ -6,28 +6,14 @@ import time
 import threading as th
 from matplotlib import pyplot as plt 
 from matplotlib.patches import Ellipse
-import math
+from util import euler_from_quaternion
 from mpc_solver import MPCController, rob_diam
 from scan import CostMapConverter
 
 
  
-def euler_from_quaternion(quat):
-        """
-        Convert a quaternion into euler angles (roll, pitch, yaw)
-        roll is rotation around x in radians (counterclockwise)
-        pitch is rotation around y in radians (counterclockwise)
-        yaw is rotation around z in radians (counterclockwise)
-        """
-        x,y,z,w = quat
-        t3 = +2.0 * (w * z + x * y)
-        t4 = +1.0 - 2.0 * (y * y + z * z)
-        yaw_z = math.atan2(t3, t4)
-        # yaw_z = np.rad2deg(yaw_z)
-        return yaw_z
 
-
-TARGET_POINT = np.array([8.0, 5.0, 0.0])    # x,y
+TARGET_POINT = np.array([8.0, 0.0, 0.0])    # x,y
 # TARGET_POINT = np.array([0.0, 0.0, 0.0])    # x,y
 
 plt.ion()
